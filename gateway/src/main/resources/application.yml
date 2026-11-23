@@ -1,0 +1,63 @@
+server:
+  port: ${PORT:8180}
+  shutdown: graceful
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            connect-timeout: 2000
+            response-timeout: 10s
+
+claimflow:
+  services:
+    member: ${MEMBER_SERVICE_URL:http://localhost:8181}
+    claims: ${CLAIMS_SERVICE_URL:http://localhost:8182}
+    audit: ${AUDIT_SERVICE_URL:http://localhost:8183}
+  jwt:
+    issuer: ${JWT_ISSUER:http://localhost:8180}
+    ttl: ${JWT_TTL:PT1H}
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5191,http://localhost:5192}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+---
+# Demo accounts for local runs and the docker-compose stack. Passwords are listed in the README.
+# Production profiles must not activate this.
+spring:
+  config:
+    activate:
+      on-profile: demo
+
+claimflow:
+  users:
+    - username: maria
+      password-hash: "$2a$10$HqoPozluo/T41zGPQ2Pr9OULvAVsYdBLgyInqtuUGMMvtiyLiRVPS"
+      role: MEMBER
+      display-name: Maria Gonzalez
+      member-id: eb47888d-3ffb-4ad2-940a-ae35e825b454
+    - username: james
+      password-hash: "$2a$10$HqoPozluo/T41zGPQ2Pr9OULvAVsYdBLgyInqtuUGMMvtiyLiRVPS"
+      role: MEMBER
+      display-name: James Carter
+      member-id: 9a98105c-6ecc-4f82-aaf5-ad034623584f
+    - username: ava
+      password-hash: "$2a$10$vXYEP5WfZosskjFmG4qUz.7tv1hjGKjxdXyF36/z2nzrYnusA6zJW"
+      role: ADJUSTER
+      display-name: Ava Thompson
+    - username: admin
+      password-hash: "$2a$10$AEkfDNe/zcdd7mV1Z1tmP.UJudpyFKE/2KZZMO8k7nIkcvrVXbSlO"
+      role: ADMIN
+      display-name: Platform Admin
