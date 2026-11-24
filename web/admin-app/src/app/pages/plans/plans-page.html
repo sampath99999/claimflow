@@ -1,0 +1,127 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Plans</h1>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Benefit plans members can be enrolled on. Retired plans keep their members but take no new ones.</p>
+    </div>
+    <button type="button" class="btn-primary" (click)="openNew()">New plan</button>
+  </div>
+
+  <div class="card">
+    <div class="flex flex-wrap items-center gap-4 border-b border-slate-200 p-4 dark:border-slate-800">
+      <input #searchBox class="input max-w-xs" placeholder="Search code or name" aria-label="Search plans" [value]="search()" (input)="onSearch(searchBox.value)" />
+      <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+        <input #activeBox type="checkbox" class="size-4 accent-brand-700" [checked]="activeOnly()" (change)="onActiveOnly(activeBox.checked)" />
+        Active only
+      </label>
+      @if (loading()) {
+        <span class="ml-auto size-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-600" role="status" aria-label="Loading"></span>
+      }
+    </div>
+
+    @if (error()) {
+      <div class="m-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200" role="alert">
+        {{ error() }}
+      </div>
+    }
+
+    @if (result(); as data) {
+      @if (data.content.length === 0) {
+        <p class="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">No plans match "{{ search() }}".</p>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr>
+                <th class="th"><app-sort-header field="code" label="Code" [sort]="sort()" (sortChange)="onSort($event)" /></th>
+                <th class="th"><app-sort-header field="name" label="Name" [sort]="sort()" (sortChange)="onSort($event)" /></th>
+                <th class="th"><app-sort-header field="type" label="Type" [sort]="sort()" (sortChange)="onSort($event)" /></th>
+                <th class="th text-right"><app-sort-header field="annualDeductible" label="Deductible" [sort]="sort()" (sortChange)="onSort($event)" /></th>
+                <th class="th text-right"><app-sort-header field="coinsurancePercent" label="Coinsurance" [sort]="sort()" (sortChange)="onSort($event)" /></th>
+                <th class="th text-right">OOP max</th>
+                <th class="th text-right">Members</th>
+                <th class="th">Status</th>
+                <th class="th">Updated</th>
+                <th class="th"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+              @for (plan of data.content; track plan.id) {
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <td class="td font-mono text-xs">{{ plan.code }}</td>
+                  <td class="td font-medium">{{ plan.name }}</td>
+                  <td class="td">{{ plan.type }}</td>
+                  <td class="td text-right tabular-nums">{{ plan.annualDeductible | currency: 'USD' }}</td>
+                  <td class="td text-right tabular-nums">{{ plan.coinsurancePercent }}%</td>
+                  <td class="td text-right tabular-nums">{{ plan.outOfPocketMax | currency: 'USD' }}</td>
+                  <td class="td text-right tabular-nums">{{ plan.memberCount }}</td>
+                  <td class="td"><app-status-pill [status]="plan.active ? 'ACTIVE' : 'RETIRED'" /></td>
+                  <td class="td whitespace-nowrap text-slate-500 dark:text-slate-400">{{ plan.updatedAt | date: 'mediumDate' }}</td>
+                  <td class="td text-right"><button type="button" class="btn-secondary px-2.5 py-1 text-xs" (click)="openEdit(plan)">Edit</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <app-pager [page]="data.page" [totalPages]="data.totalPages" [totalElements]="data.totalElements" noun="plans" (pageChange)="page.set($event)" />
+      }
+    }
+  </div>
+</div>
+
+@if (editing(); as target) {
+  <app-modal [title]="target === 'new' ? 'New plan' : 'Edit ' + target.code" (closed)="editing.set(null)">
+    <form class="grid grid-cols-2 gap-4" [formGroup]="form" (ngSubmit)="save()">
+      <div>
+        <label class="label" for="code">Code</label>
+        <input id="code" class="input font-mono uppercase" formControlName="code" />
+        @if (invalid('code')) {
+          <p class="mt-1 text-xs text-rose-600">3-32 upper case letters, digits or dashes</p>
+        }
+      </div>
+      <div>
+        <label class="label" for="type">Type</label>
+        <select id="type" class="input" formControlName="type">
+          @for (type of planTypes; track type) {
+            <option [value]="type">{{ type }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-span-2">
+        <label class="label" for="name">Name</label>
+        <input id="name" class="input" formControlName="name" />
+        @if (invalid('name')) {
+          <p class="mt-1 text-xs text-rose-600">Name is required</p>
+        }
+      </div>
+      <div>
+        <label class="label" for="deductible">Annual deductible</label>
+        <input id="deductible" type="number" min="0" step="0.01" class="input" formControlName="annualDeductible" />
+      </div>
+      <div>
+        <label class="label" for="coinsurance">Member coinsurance %</label>
+        <input id="coinsurance" type="number" min="0" max="100" class="input" formControlName="coinsurancePercent" />
+        @if (invalid('coinsurancePercent')) {
+          <p class="mt-1 text-xs text-rose-600">Between 0 and 100</p>
+        }
+      </div>
+      <div>
+        <label class="label" for="oop">Out of pocket max</label>
+        <input id="oop" type="number" min="0" step="0.01" class="input" formControlName="outOfPocketMax" />
+      </div>
+      @if (target !== 'new') {
+        <label class="flex items-center gap-2 self-end pb-2 text-sm">
+          <input type="checkbox" class="size-4 accent-brand-700" formControlName="active" />
+          Open for enrollment
+        </label>
+      }
+      @if (saveError()) {
+        <p class="col-span-2 rounded-lg bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200" role="alert">{{ saveError() }}</p>
+      }
+      <div class="col-span-2 flex justify-end gap-2">
+        <button type="button" class="btn-secondary" (click)="editing.set(null)">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="saving()">{{ saving() ? 'Saving...' : 'Save plan' }}</button>
+      </div>
+    </form>
+  </app-modal>
+}

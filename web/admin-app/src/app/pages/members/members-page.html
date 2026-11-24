@@ -1,0 +1,152 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Members</h1>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Enrollment, coverage dates and status. Eligibility checks on new claims read from here.</p>
+    </div>
+    <button type="button" class="btn-primary" (click)="openNew()">Enroll member</button>
+  </div>
+
+  <div class="card">
+    <div class="flex flex-wrap items-center gap-3 border-b border-slate-200 p-4 dark:border-slate-800">
+      <input #searchBox class="input max-w-xs" placeholder="Name, member number or email" aria-label="Search members" [value]="search()" (input)="setFilter(() => search.set(searchBox.value))" />
+      <select #statusBox class="input w-auto" aria-label="Filter by status" (change)="setFilter(() => status.set($any(statusBox.value)))">
+        <option value="">All statuses</option>
+        @for (s of statuses; track s) {
+          <option [value]="s">{{ s.charAt(0) + s.slice(1).toLowerCase() }}</option>
+        }
+      </select>
+      <select #planBox class="input w-auto" aria-label="Filter by plan" (change)="setFilter(() => planCode.set(planBox.value))">
+        <option value="">All plans</option>
+        @for (p of plans(); track p.id) {
+          <option [value]="p.code">{{ p.code }}</option>
+        }
+      </select>
+      @if (loading()) {
+        <span class="ml-auto size-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-600" role="status" aria-label="Loading"></span>
+      }
+    </div>
+
+    @if (error()) {
+      <div class="m-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200" role="alert">
+        {{ error() }}
+      </div>
+    }
+
+    @if (result(); as data) {
+      @if (data.content.length === 0) {
+        <p class="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">No members match these filters.</p>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr>
+                <th class="th"><app-sort-header field="memberNumber" label="Member #" [sort]="sort()" (sortChange)="onSort($event)" /></th>
+                <th class="th"><app-sort-header field="lastName" label="Name" [sort]="sort()" (sortChange)="onSort($event)" /></th>
+                <th class="th">Email</th>
+                <th class="th">Plan</th>
+                <th class="th"><app-sort-header field="coverageStart" label="Coverage" [sort]="sort()" (sortChange)="onSort($event)" /></th>
+                <th class="th"><app-sort-header field="status" label="Status" [sort]="sort()" (sortChange)="onSort($event)" /></th>
+                <th class="th"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+              @for (member of data.content; track member.id) {
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <td class="td font-mono text-xs">{{ member.memberNumber }}</td>
+                  <td class="td">
+                    <p class="font-medium">{{ member.lastName }}, {{ member.firstName }}</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Born {{ member.dateOfBirth | date: 'mediumDate' }}</p>
+                  </td>
+                  <td class="td text-slate-600 dark:text-slate-300">{{ member.email ?? '-' }}</td>
+                  <td class="td"><span class="font-mono text-xs">{{ member.plan.code }}</span></td>
+                  <td class="td whitespace-nowrap">
+                    {{ member.coverageStart | date: 'mediumDate' }} to {{ member.coverageEnd ? (member.coverageEnd | date: 'mediumDate') : 'open' }}
+                  </td>
+                  <td class="td"><app-status-pill [status]="member.status" /></td>
+                  <td class="td text-right"><button type="button" class="btn-secondary px-2.5 py-1 text-xs" (click)="openEdit(member)">Edit</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <app-pager [page]="data.page" [totalPages]="data.totalPages" [totalElements]="data.totalElements" noun="members" (pageChange)="page.set($event)" />
+      }
+    }
+  </div>
+</div>
+
+@if (editing(); as target) {
+  <app-modal [title]="target === 'new' ? 'Enroll member' : 'Edit ' + target.memberNumber" (closed)="editing.set(null)">
+    <form class="grid grid-cols-2 gap-4" [formGroup]="form" (ngSubmit)="save()">
+      <div>
+        <label class="label" for="firstName">First name</label>
+        <input id="firstName" class="input" formControlName="firstName" />
+        @if (invalid('firstName')) {
+          <p class="mt-1 text-xs text-rose-600">Required</p>
+        }
+      </div>
+      <div>
+        <label class="label" for="lastName">Last name</label>
+        <input id="lastName" class="input" formControlName="lastName" />
+        @if (invalid('lastName')) {
+          <p class="mt-1 text-xs text-rose-600">Required</p>
+        }
+      </div>
+      <div>
+        <label class="label" for="dob">Date of birth</label>
+        <input id="dob" type="date" class="input" formControlName="dateOfBirth" />
+        @if (invalid('dateOfBirth')) {
+          <p class="mt-1 text-xs text-rose-600">Required</p>
+        }
+      </div>
+      <div>
+        <label class="label" for="email">Email</label>
+        <input id="email" type="email" class="input" formControlName="email" />
+        @if (invalid('email')) {
+          <p class="mt-1 text-xs text-rose-600">Not a valid email</p>
+        }
+      </div>
+      <div class="col-span-2">
+        <label class="label" for="plan">Plan</label>
+        <select id="plan" class="input" formControlName="planCode">
+          <option value="" disabled>Choose a plan</option>
+          @for (p of openPlans(); track p.id) {
+            <option [value]="p.code">{{ p.code }} - {{ p.name }} ({{ p.coinsurancePercent }}% coinsurance)</option>
+          }
+          @if (target !== 'new' && !isOpenPlan(target.plan.code)) {
+            <option [value]="target.plan.code">{{ target.plan.code }} (retired)</option>
+          }
+        </select>
+        @if (invalid('planCode')) {
+          <p class="mt-1 text-xs text-rose-600">Choose a plan</p>
+        }
+      </div>
+      <div>
+        <label class="label" for="start">Coverage start</label>
+        <input id="start" type="date" class="input" formControlName="coverageStart" />
+      </div>
+      <div>
+        <label class="label" for="end">Coverage end</label>
+        <input id="end" type="date" class="input" formControlName="coverageEnd" />
+      </div>
+      @if (target !== 'new') {
+        <div class="col-span-2">
+          <label class="label" for="status">Status</label>
+          <select id="status" class="input" formControlName="status">
+            @for (s of statuses; track s) {
+              <option [value]="s">{{ s.charAt(0) + s.slice(1).toLowerCase() }}</option>
+            }
+          </select>
+        </div>
+      }
+      @if (saveError()) {
+        <p class="col-span-2 rounded-lg bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200" role="alert">{{ saveError() }}</p>
+      }
+      <div class="col-span-2 flex justify-end gap-2">
+        <button type="button" class="btn-secondary" (click)="editing.set(null)">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="saving()">{{ saving() ? 'Saving...' : 'Save member' }}</button>
+      </div>
+    </form>
+  </app-modal>
+}
