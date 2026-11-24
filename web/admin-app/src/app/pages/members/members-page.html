@@ -56,12 +56,12 @@
                   <td class="td font-mono text-xs">{{ member.memberNumber }}</td>
                   <td class="td">
                     <p class="font-medium">{{ member.lastName }}, {{ member.firstName }}</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Born {{ member.dateOfBirth | date: 'mediumDate' }}</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Born {{ member.dateOfBirth | date: 'mediumDate' : 'UTC' }}</p>
                   </td>
                   <td class="td text-slate-600 dark:text-slate-300">{{ member.email ?? '-' }}</td>
                   <td class="td"><span class="font-mono text-xs">{{ member.plan.code }}</span></td>
                   <td class="td whitespace-nowrap">
-                    {{ member.coverageStart | date: 'mediumDate' }} to {{ member.coverageEnd ? (member.coverageEnd | date: 'mediumDate') : 'open' }}
+                    {{ member.coverageStart | date: 'mediumDate' : 'UTC' }} to {{ member.coverageEnd ? (member.coverageEnd | date: 'mediumDate' : 'UTC') : 'open' }}
                   </td>
                   <td class="td"><app-status-pill [status]="member.status" /></td>
                   <td class="td text-right"><button type="button" class="btn-secondary px-2.5 py-1 text-xs" (click)="openEdit(member)">Edit</button></td>
