@@ -59,7 +59,7 @@ The gateway issues RS256 tokens and publishes its public key at `/.well-known/jw
 
 ## Tech stack
 
-Java 21, Spring Boot 3.5, Spring Cloud Gateway 2025.0, Spring Security (OAuth2 resource server, JWT, BCrypt), Spring Data JPA / Hibernate 6, Flyway, PostgreSQL 16, Spring Kafka, Apache Kafka 4 (KRaft), Spring Data MongoDB, Resilience4j, springdoc OpenAPI, Micrometer/Prometheus, JUnit 5, Mockito, AssertJ, WireMock, Zonky embedded Postgres, Flapdoodle embedded Mongo, spring-kafka-test, React 19, Angular 22, Tailwind CSS 4, Docker, Kubernetes (AKS), GitHub Actions, Jenkins.
+Java 21, Spring Boot 3.5, Spring Cloud Gateway 2025.0, Spring Security (OAuth2 resource server, JWT, BCrypt), Spring Data JPA / Hibernate 6, Flyway, PostgreSQL 16, Spring Kafka, Apache Kafka 4 (KRaft), Spring Data MongoDB, Resilience4j, springdoc OpenAPI, Micrometer/Prometheus, JUnit 5, Mockito, AssertJ, WireMock, Zonky embedded Postgres, Flapdoodle embedded Mongo, spring-kafka-test, React 19, Angular 22, Tailwind CSS 4, Docker, Kubernetes (AKS), Jenkins.
 
 ## Running it locally (no Docker)
 
