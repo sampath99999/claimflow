@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audit-service
+  namespace: claimflow
+  labels: { app: audit-service }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: audit-service }
+  template:
+    metadata:
+      labels: { app: audit-service }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: audit-service
+          image: claimflowacr.azurecr.io/claimflow/audit-service:latest
+          ports:
+            - containerPort: 8183
+          env:
+            - name: PORT
+              value: "8183"
+          envFrom:
+            - configMapRef:
+                name: claimflow-config
+          resources:
+            requests: { cpu: 250m, memory: 384Mi }
+            limits: { memory: 768Mi }
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8183 }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8183 }
+            initialDelaySeconds: 40
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audit-service
+  namespace: claimflow
+spec:
+  selector: { app: audit-service }
+  ports:
+    - port: 80
+      targetPort: 8183

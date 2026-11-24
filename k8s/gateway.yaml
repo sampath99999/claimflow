@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: claimflow
+  labels: { app: gateway }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: gateway }
+  template:
+    metadata:
+      labels: { app: gateway }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: gateway
+          image: claimflowacr.azurecr.io/claimflow/gateway:latest
+          ports:
+            - containerPort: 8180
+          env:
+            - name: PORT
+              value: "8180"
+            # Every replica must sign with the same key, so it comes from a secret.
+            - name: CLAIMFLOW_JWT_PRIVATEKEY
+              value: file:/etc/claimflow/jwt/private.pem
+            - name: CLAIMFLOW_JWT_PUBLICKEY
+              value: file:/etc/claimflow/jwt/public.pem
+          envFrom:
+            - configMapRef:
+                name: claimflow-config
+          resources:
+            requests: { cpu: 250m, memory: 384Mi }
+            limits: { memory: 768Mi }
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8180 }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8180 }
+            initialDelaySeconds: 40
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: jwt, mountPath: /etc/claimflow/jwt, readOnly: true }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - name: jwt
+          secret:
+            secretName: claimflow-jwt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: claimflow
+spec:
+  selector: { app: gateway }
+  ports:
+    - port: 80
+      targetPort: 8180
