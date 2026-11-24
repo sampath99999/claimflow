@@ -1,0 +1,108 @@
+# Full stack for local use. Not run during development of this repo (no Docker on that machine);
+# see README for the Docker-free setup that was actually used.
+name: claimflow
+
+x-service-env: &service-env
+  SPRING_PROFILES_ACTIVE: demo
+  JWK_SET_URI: http://gateway:8180/.well-known/jwks.json
+  JWT_ISSUER: http://localhost:8180
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  DB_USERNAME: claimflow
+  DB_PASSWORD: ${POSTGRES_PASSWORD:-claimflow-local}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: claimflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-claimflow-local}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports: ["54340:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U claimflow"]
+      interval: 5s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:4.1.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:19340
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19340
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 3
+    ports: ["19340:19340"]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null"]
+      interval: 10s
+      retries: 10
+
+  mongo:
+    image: mongo:7.0
+    volumes:
+      - mongo-data:/data/db
+    ports: ["27340:27017"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      retries: 10
+
+  gateway:
+    build: { context: ., dockerfile: gateway/Dockerfile }
+    environment:
+      SPRING_PROFILES_ACTIVE: demo
+      JWT_ISSUER: http://localhost:8180
+      MEMBER_SERVICE_URL: http://member-service:8181
+      CLAIMS_SERVICE_URL: http://claims-service:8182
+      AUDIT_SERVICE_URL: http://audit-service:8183
+      CORS_ALLOWED_ORIGINS: http://localhost:5191,http://localhost:5192
+    ports: ["8180:8180"]
+
+  member-service:
+    build: { context: ., dockerfile: member-service/Dockerfile }
+    environment:
+      <<: *service-env
+      DB_URL: jdbc:postgresql://postgres:5432/claimflow_members
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  claims-service:
+    build: { context: ., dockerfile: claims-service/Dockerfile }
+    environment:
+      <<: *service-env
+      DB_URL: jdbc:postgresql://postgres:5432/claimflow_claims
+      MEMBER_SERVICE_URL: http://member-service:8181
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+
+  audit-service:
+    build: { context: ., dockerfile: audit-service/Dockerfile }
+    environment:
+      <<: *service-env
+      MONGODB_HOST: mongo
+      MONGODB_PORT: 27017
+    depends_on:
+      kafka: { condition: service_healthy }
+      mongo: { condition: service_healthy }
+
+  claims-app:
+    build: { context: web/claims-app, args: { VITE_API_URL: http://localhost:8180 } }
+    ports: ["5191:8080"]
+
+  admin-app:
+    build: { context: web/admin-app }
+    ports: ["5192:8080"]
+
+volumes:
+  postgres-data:
+  mongo-data:
